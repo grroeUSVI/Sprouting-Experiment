@@ -244,6 +244,9 @@ cldList(comparison = Lab1$Comparison,
 
 ```
 
+
+A germinans intake across sites
+
 ```{r Compare AVGE intake Variables Across Sites}
 
 #check for significant differences in AVGE Mass between sites
@@ -565,6 +568,8 @@ CharPlot1<-grid.arrange(VAVGElength,VLARAlength,VAVGEwidth,VLARAwidth,VAVGEmass,
 
 ```
 
+mean and sem of intake characteristics (MEAN/SEM Intake Variables Table)
+
 ```{r Mean and St Dev}
 
 library(plotrix)#for SEM
@@ -595,7 +600,7 @@ LARAsem<-LARA%>%
 
 ```
 
-Visualizing float no float for both species, and sprout or no sprout
+Visualizing float no float for both species, and sprout or no sprout, across treatments seeing how floating affects sprouting while taking into account treatment
 
 ```{r Float/No Float}
 #only six LARA props didn't float, so not enough sink to include as relevant, not visualizing
@@ -646,7 +651,7 @@ AVGEfloatbar
 
 ```
 
-now looking at float/ no float by site 
+now looking at float/ no float by site (figure in paper in this chunk) Figure 3 Results of A germinans bouyancy test
 
 ```{r Float/No Float including Site}
 library(rcompanion)#posthoctest
@@ -670,12 +675,12 @@ AVGEFbar1<-ggplot(data=summary_counts_site, aes(x=SiteID, y=count, fill=Float))+
 
 AVGEFbar1
 
-#making a nice version of this plot, how many floated/sank from each site
+#making a nice version of this plot, how many floated/sank from each site (this plot is in manuscript draft)
 AVGEFbar1<-ggplot(data=summary_counts_site, aes(x=SiteID, y=count, fill=Float))+
   geom_col(position="dodge")+
   ggtitle(expression(italic("A. germinans") ~ "Propagule Bouyancy Test"))+
-  xlab("Propagule Count")+
-  ylab("Collection Site")+
+  ylab("Propagule Count")+
+  xlab("Collection Site")+
   scale_fill_manual(values = c("Y" = "darkgreen", "N" = "maroon"),
                     name = "Bouyancy", labels=c( "Did Not Float", "Floated"))+
   theme(plot.title = element_text(hjust = 0.5), panel.background = element_rect(fill = "white", colour = "grey50"))
@@ -730,7 +735,7 @@ AVGEfloatbar
 ```
 
 
-Look at sprout or not sprout as a binary, 0/1 then plot and run logistic regression to see the effect of the prop characteristics on whether or not things sprouted
+Look at sprout or not sprout as a binary, 0/1 then plot and run logistic regression to see the effect of the prop characteristics on whether or not things sprouted AVGE, ran multiple logistic regressions, best one with lowest AIC, results pasted into code (Table 4)
 
 ```{r Logits AVGE Only}
 library(car)#for calculating VIF, test how correlation looks
@@ -854,6 +859,8 @@ summary(NoSWidthLogit)
 
 ```
 
+
+sprouted 0/1, logisitic regression best model included Table 6 
 ```{r LARA Only Logit}
 library(DHARMa)#for simulate residuals, to check assumptions
 
@@ -1028,6 +1035,8 @@ Rplot
 
 ```
 
+
+effect on days until sprouting, AVGE Table 5
 ```{r AVGE Poisson}
 #lenght
 ALplot<-lubesprout%>%
@@ -1130,6 +1139,9 @@ summary(Mpoisson)
 
 ```
 
+
+effect on days until sprouting, LARA Table 7
+
 ```{r LARA Poisson}
 #lenght
 LLplot<-lubesprout%>% 
@@ -1216,7 +1228,7 @@ summary(sproutpoisson2)
 
 ```
 
-
+Cleaning data calculating proporiton sprouted on each day for plotting, visualized in different ways
 ```{r Determine Percent Germinated}
 library(lubridate)
 
@@ -1345,6 +1357,8 @@ AVGEpropplot<-AVGEpropplotDF%>%
 AVGEpropplot
 ```
 
+Making figure 8
+
 ```{r Functionify the plotmaking}
 library(patchwork)#for stitching plots together
 
@@ -1367,11 +1381,11 @@ LongFrame<-DPropGermSproutCount%>%
 LongFrame
 
 #make my titles as objects so they can have sci name italisized
-LV<-expression(italic("L. racemosa")~"Propagules Collected From Vessup Salt Pond")
+LV<-expression(italic("L. racemosa")~"Seeds Collected From Vessup Salt Pond")
 AV<-expression(italic("A. germinans")~"Propagules Collected From Vessup Salt Pond")
-LC<-expression(italic("L. racemosa")~"Propagules Collected From Compass Point")
+LC<-expression(italic("L. racemosa")~"Seeds Collected From Compass Point")
 AC<-expression(italic("A. germinans")~"Propagules Collected From Compass Point")
-LS<-expression(italic("L. racemosa")~"Propagules Collected From STEER")
+LS<-expression(italic("L. racemosa")~"Seeds Collected From STEER")
 AS<-expression(italic("A. germinans")~"Propagules Collected From STEER")
 
 
@@ -1387,7 +1401,7 @@ PropPlot<-function(data, species_value, siteid_value,title){data%>%
   geom_line()+
   geom_point()+
   xlab("Number of Days After Intake")+
-  ylab("Proportion of Propagules Sprouted")+
+  ylab("Proportion Sprouted")+
   ggtitle(title)+
   scale_color_manual(name="Treatment",values=c("olivedrab","cornflowerblue","darkblue","salmon4"))+
   theme(plot.margin = margin(10, 10, 10, 10),plot.title = element_text(hjust = 0.5), panel.background = element_rect(fill = "white", colour = "grey50"))}
@@ -1430,10 +1444,20 @@ PPatchPlot<-VessupLARAprop+CompassLARAprop+SteerLARAprop+VessupAVGEprop+CompassA
 
 PPatchPlot
 
+#patch vertically 
+
+p1<-VessupLARAprop+VessupAVGEprop+plot_layout(guides = 'collect')
+p1
+p2<-CompassLARAprop+CompassAVGEprop+plot_layout(guides = 'collect')
+p3<-SteerLARAprop+SteerAVGEprop+plot_layout(guides = 'collect')
+
+VPatch<-p1/p2/p3+plot_layout(guides = 'collect')
+VPatch
+
 ```
 
 
-look at all the props together not including site
+look at all the props together not including site Making figure 6
 
 ```{r}
 
@@ -1643,6 +1667,8 @@ SproutLARAViolinPlot
 
 ```
 
+Couldnt decide if unsprouted should be 0, removed, or 32 ended up removing it. ran all three ways
+
 ```{r Treatment ANOVA}
 #going to try and run the ANOVA to compare days until sprouting across the three treatments three ways
 
@@ -1815,6 +1841,8 @@ cldList(comparison = Lab1$Comparison,
 
 ```
 
+
+This is running a KW test for LARA with the ones that didnt sprout removed plotting results for LARA
 ```{r FINAL KW choice LARA}
 #2) KW no sprout removed
 
@@ -1874,6 +1902,8 @@ cldList(comparison = Lab1$Comparison,
 #3  Salt      b          b
 #4  Soil      b          b
 ```
+
+This is running KW with the ones that didnt sprout removed for AVGE, and plotting results, combined two plots and create figure 7
 
 ```{r FINAL KW choice AVGE}
 #2) KW no sprout removed
