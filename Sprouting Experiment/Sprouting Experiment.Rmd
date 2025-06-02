@@ -21,7 +21,7 @@ library(tidyverse)
 
 #removed the two reps where intake radicle length was 10 in excel prior to import, this length is impossible 
 
-sprout <- read_csv("data/E1 LARA_AVGE intake experiment Fall 2022 - MasterData.csv")
+sprout <- read_csv("Sprouting Experiment/data/E1 LARA_AVGE intake experiment Fall 2022 - MasterData.csv")
 
 sprout<-sprout%>%filter(`IntakeDate`!="11/7/22")#remove the one random intake on 11/7 remove
 
@@ -103,6 +103,14 @@ bartlett.test(MassSR~SiteID, LARA)#nope
 LARA$logMass<-(log(LARA$Mass))
 bartlett.test(logMass~SiteID, LARA)#nope
 
+#check residuals
+
+LMaov<-aov(Mass~SiteID, LARA)
+#pull Resids
+aov_residuals <- residuals(LMaov)
+hist(aov_residuals)#skewed
+shapiro.test(aov_residuals)#<-1.645e-11
+#nope
 
 #nonparametric
 LARAMkw<-kruskal.test(Mass~SiteID, data=LARA)
@@ -111,7 +119,7 @@ LARAMkw
 #	Kruskal-Wallis rank sum test
 
 #data:  Mass by SiteID
-#Kruskal-Wallis chi-squared = 101.11, df = 2, p-value < 2.2e-16
+#Kruskal-Wallis chi-squared = 102.14, df = 2, p-value < 2.2e-16
 
 #post hoc 
 
@@ -149,6 +157,15 @@ bartlett.test(PropLentghtSQ~SiteID,LARA)# nope
 LARA$PropaguleLengthSR<-sqrt(LARA$PropaguleLength)
 bartlett.test(PropaguleLengthSR~SiteID,LARA)#nope
 
+#check residuals
+
+LLaov<-aov(PropaguleLength~SiteID, LARA)
+#pull Resids
+aov_residuals <- residuals(LLaov)
+hist(aov_residuals)#skewed
+shapiro.test(aov_residuals)#<- 0.0002137
+#nope
+
 #nonparametric
 LARALkw<-kruskal.test(PropaguleLength~SiteID, data=LARA)
 LARALkw
@@ -156,7 +173,7 @@ LARALkw
 #	Kruskal-Wallis rank sum test
 
 #data:  PropaguleLength by SiteID
-#Kruskal-Wallis chi-squared = 106.92, df = 2, p-value < 2.2e-16
+#Kruskal-Wallis chi-squared = 109.1, df = 2, p-value < 2.2e-16
 
 
 #post hoc test
@@ -189,6 +206,15 @@ LARA$WSQ<-(LARA$`Width-mm`)^2
 bartlett.test(WSQ~SiteID,LARA)#nope
 LARA$WSR<-sqrt(LARA$Mass)
 bartlett.test(WSR~SiteID, LARA)#nope
+
+#check residuals
+
+LWaov<-aov(`Width-mm`~SiteID, LARA)
+#pull Resids
+aov_residuals <- residuals(LWaov)
+hist(aov_residuals)#skewed
+shapiro.test(aov_residuals)#<- 2.919e-08
+#nope
 
 #nonparametric
 LARAWkw<-kruskal.test(`Width-mm`~SiteID, data=LARA)
@@ -233,6 +259,16 @@ AVGE$MassSR<-sqrt(AVGE$Mass)
 bartlett.test(MassSR~SiteID, AVGE)#= 0.005135
 #no good 
 
+
+#check residuals
+
+AMaov<-aov(Mass~SiteID, AVGE)
+#pull Resids
+aov_residuals <- residuals(AMaov)
+hist(aov_residuals)#skewed
+shapiro.test(aov_residuals)#<-0.0005958
+
+
 #nonparametric
 AVGEMkw<-kruskal.test(Mass~SiteID, data=AVGE)
 AVGEMkw
@@ -268,6 +304,8 @@ cldList(comparison = Lab1$Comparison,
 #3 VessupSaltPond      a         a 
 
 
+
+
 #compare length differences across sites
 
 #check assumptions and try transformations
@@ -281,6 +319,15 @@ AVGE$PropLengthSR<-(sqrt(AVGE$PropaguleLength))
 bartlett.test(PropLengthSR~SiteID,AVGE)#0.01157
 #nope, nonparametric
 
+#check Residuals
+
+ALaov<-aov(PropaguleLength~SiteID, AVGE)
+#pull Resids
+aov_residuals <- residuals(ALaov)
+hist(aov_residuals)#skewed
+shapiro.test(aov_residuals)#<-0.04565
+
+#nonparametric
 AVGELkw<-kruskal.test(PropaguleLength~SiteID, data=AVGE)
 AVGELkw
 
@@ -318,7 +365,7 @@ cldList(comparison = Lab1$Comparison,
 #check assumptions and try transformations
 bartlett.test(`Width-mm`~SiteID, AVGE) #p=0.1096
 
-
+#check residuals
 WAOV<-aov(`Width-mm`~SiteID, AVGE)
 plot(WAOV)
 
