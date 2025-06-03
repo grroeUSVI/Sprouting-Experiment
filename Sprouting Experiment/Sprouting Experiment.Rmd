@@ -82,7 +82,7 @@ sprout$SproutDate<-mdy(sprout$SproutDate)
 sprout$IntakeDate<-mdy(sprout$IntakeDate)
 ```
 
-## Lara Intake across sites
+## Lara Intake across sites Kruskall Wallis Test
 
 ```{r Compare LARA intake Variables Across Sites}
 library(FSA)#for DunnPost Hoc
@@ -245,7 +245,7 @@ cldList(comparison = Lab1$Comparison,
 ```
 
 
-A germinans intake across sites
+A germinans intake across sites Kruskall Wallis Test 
 
 ```{r Compare AVGE intake Variables Across Sites}
 
@@ -568,7 +568,7 @@ CharPlot1<-grid.arrange(VAVGElength,VLARAlength,VAVGEwidth,VLARAwidth,VAVGEmass,
 
 ```
 
-mean and sem of intake characteristics (MEAN/SEM Intake Variables Table)
+mean and sem of intake characteristics (MEAN/SEM Intake Variables Table X)
 
 ```{r Mean and St Dev}
 
@@ -1388,6 +1388,14 @@ AC<-expression(italic("A. germinans")~"Propagules Collected From Compass Point")
 LS<-expression(italic("L. racemosa")~"Seeds Collected From STEER")
 AS<-expression(italic("A. germinans")~"Propagules Collected From STEER")
 
+#modifying treatment labels
+treatment_labels <- c(
+  "Air" = "No Substrate",
+  "Fresh" = "Freshwater",
+  "Salt" = "Saltwater",
+  "Soil" = "Soil"
+)
+
 
 #now turning my plot and code into a function, that plots my data 
 PropPlot<-function(data, species_value, siteid_value,title){data%>%
@@ -1403,7 +1411,7 @@ PropPlot<-function(data, species_value, siteid_value,title){data%>%
   xlab("Number of Days After Intake")+
   ylab("Proportion Sprouted")+
   ggtitle(title)+
-  scale_color_manual(name="Treatment",values=c("olivedrab","cornflowerblue","darkblue","salmon4"))+
+  scale_color_manual(name="Treatment",values=c("olivedrab","cornflowerblue","darkblue","salmon4"), labels=treatment_labels)+
   theme(plot.margin = margin(10, 10, 10, 10),plot.title = element_text(hjust = 0.5), panel.background = element_rect(fill = "white", colour = "grey50"))}
 
 #plotting each combo of species and site
@@ -1560,7 +1568,7 @@ AVGEpropplot<-AVGEpropplotDF%>%
   xlab("Number of Days After Intake")+
   ylab("Proportion of Propagules Sprouted")+
   ggtitle(expression("Proportion of" ~italic("A. germinans")~"Propagules Sprouted"))+
-  scale_color_manual(name="Treatment",values=c("azure4","cornflowerblue","darkblue","salmon4"))+
+  scale_color_manual(name="Treatment",values=c("azure4","cornflowerblue","darkblue","salmon4"), labels=treatment_labels)+
   theme(plot.title = element_text(hjust = 0.5), panel.background = element_rect(fill = "white", colour = "grey50"))
 
 
@@ -1589,7 +1597,7 @@ LARApropplot<-LARApropplotDF%>%
   xlab("Number of Days After Intake")+
   ylab("Proportion of Seeds Sprouted")+
    ggtitle(expression("Proportion of" ~italic("L. racemosa")~"Seeds Sprouted"))+
-  scale_color_manual(name="Treatment",values=c("azure4","cornflowerblue","darkblue","salmon4"))+
+  scale_color_manual(name="Treatment",values=c("azure4","cornflowerblue","darkblue","salmon4"), labels=treatment_labels)+
   theme(plot.title = element_text(hjust = 0.5), panel.background = element_rect(fill = "white", colour = "grey50"))
 
 
@@ -1601,7 +1609,7 @@ totalpatchplot
 ```
 
 
-#resume cleaning code here
+Visualizing days until sprout across different treatments, not removing unsprouted props
 ```{r Sinaplots of spread of different Treatments}
 
 library(tidyverse)
@@ -1859,6 +1867,12 @@ SproutLARAViolinPlot<-LARAR%>%
   ylab("Days Until Sprout")+
   xlab("Treatment")+
   theme(legend.position = "none", plot.title = element_text(hjust = 0.5), panel.background = element_rect(fill = "white", colour = "grey50"))+#no legend, centered title, no background
+   scale_x_discrete(labels = c(
+  "Air" = "No Substrate",
+  "Fresh" = "Freshwater",
+  "Salt" = "Saltwater",
+  "Soil" = "Soil"
+))+
     scale_color_manual(name = "Treatment", values = c("olivedrab","cornflowerblue","darkblue","salmon4"))+#sets the colors manually of the dots, and outlines of violin plots
     geom_text(aes(family="serif", fontface="plain"),x= "Air" , y=30, label="ab", colour="black")+#add first letter, family and fontface change font and remove bold
   geom_text(aes(family="serif", fontface="plain"),x= "Fresh" , y=30, label="a", colour="black")+#add second letter
@@ -1922,6 +1936,12 @@ SproutAVGEViolinPlot<-AVGER%>%
   xlab("Treatment")+
   theme(legend.position = "none", plot.title = element_text(hjust = 0.5), panel.background = element_rect(fill = "white", colour = "grey50"))+#no legend, centered title, no background
     scale_color_manual(name = "Treatment", values = c("olivedrab","cornflowerblue","darkblue","salmon4"))+#sets the colors manually of the dots, and outlines of violin plots
+ scale_x_discrete(labels = c(
+  "Air" = "No Substrate",
+  "Fresh" = "Freshwater",
+  "Salt" = "Saltwater",
+  "Soil" = "Soil"
+))+
     geom_text(aes(family="serif", fontface="plain"),x= "Air" , y=30, label="a", colour="black")+#add first letter, family and fontface change font and remove bold
   geom_text(aes(family="serif", fontface="plain"),x= "Fresh" , y=30, label="b", colour="black")+#add second letter
   geom_text(aes(family="serif", fontface="plain"), x= "Salt" , y=30, label="a", colour="black")+#third letter 
@@ -1971,6 +1991,7 @@ TreatmentTimePlot
 
 ```
 
+Two Way Anova, did not use this 
 ```{r Two Way Anova}
 
 LARAR<-ungroup(LARAR)
@@ -2030,22 +2051,5 @@ cldList(P.adj ~ Comparison,
 
 ```
 
-Total sprouted each treatment
-```{r}
-View(TreatmentSprout)
 
-TreatmentSprout<-GermSproutCount
-
-TreatmentSprout<-as.data.frame(TreatmentSprout)
-TreatmentSprout<-as.factor(TreatmentSprout$Species)
-TreatmentSprout<-as.factor(TreatmentSprout$Treatment)
-
-TreatmentSprout<-TreatmentSprout%>%
-  group_by(Species,Treatment)%>%
-  summarise(totalSp=mutate(sum(TotalSprouted)))
-
-str(TreatmentSprout)
-  
-
-```
 
