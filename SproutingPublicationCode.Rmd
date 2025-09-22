@@ -75,14 +75,19 @@ sprout$IntakeDate<-mdy(sprout$IntakeDate)
 ```
 
 
-
-Visualizing float no float for both species, and sprout or no sprout, across treatments and collection sites
+Look at propagule bouyancy across collection sites, and across treatments
 
 ```{r Float/No Float}
+library(rcompanion)#posthoctest
+library(ggpattern)
+
+#bouyancy compared across treatments
+
 #only six LARA props didn't float, so not enough sink to include as relevant, not visualizing
 summary_countsLARA <- LARA %>%
   group_by(Treatment, Float) %>%
   summarise(count = n(), .groups = "drop")
+#spread relatively evenly across treatments
   
 
 #this is looking at the total number of props from each treatment that floated or not
@@ -99,12 +104,9 @@ AVGEFbar1
 #they are looking semi evenish, enough that floated and sank in each treatment
 
 
-library(rcompanion)#posthoctest
-
-library(ggpattern)
 
 
-#Table 2
+#Buoyancy compared across collection sites, info for table 2
 
 #LARA across sites
 siteLARA <- LARA %>%
@@ -162,15 +164,11 @@ mean and sem of intake characteristics (MEAN/SEM Intake Variables Table X)
 
 library(plotrix)#for SEM
 
-AVGEsummary<-summary(AVGE)
-AVGEsummary
-
 
 AVGEsum<-AVGE%>%
   group_by(SiteID)%>%
   summarise(meanmass=mean(Mass), meanlenght=mean(PropaguleLength), meanWidth=mean(`Width-mm`), meanRad=mean(`IntakeRadicleLength-cm`))
  
-
 
 
 AVGEsem<-AVGE%>%
@@ -189,7 +187,7 @@ LARAsem<-LARA%>%
 ```
 
 
-Lara Intake: Check for significant differences in mass, lenght, and width, across sites using a Kruskall Wallis Test
+Lara Intake: Check for significant differences in mass, length, and width, across sites using a Kruskall Wallis Test
 
 ```{r Compare LARA intake Variables Across Sites}
 library(FSA)#for DunnPost Hoc
@@ -575,7 +573,7 @@ cldList(comparison = Lab1$Comparison,
 
 Visualize size differences by species and collection site
 
-Visualizing propagule characteristics determining differences between sites, showing outputs of kw tests
+Visualizing propagule characteristics determining differences between sites, showing outputs of kw tests Figure4/5
 
 ```{r Site Visualizations Sinaplots}
 library(tidyverse)
@@ -917,7 +915,97 @@ summary(PropCharGlm)
 ```
 
 
-effect on days until sprouting, AVGE Table 5
+Calculate days until sprouting visualize prop characterisics vs time until sprout to see if it looks like any prop characteristics have any effect on time until sprout!
+
+```{r Calculate days until sprout and plot AVGE}
+
+#now I'm going to remove the props that didnt sprout (leaves me with 529)
+lubesprout<-sprout%>%filter(sprouted==1)
+
+#subtracting sprout date from intake date to get duration until sprouting
+lubesprout$DaysUntilSprout<-(lubesprout$SproutDate-lubesprout$IntakeDate)
+
+#when it subtracts the two dates from each other it says X days, i want just the number so I am separating these two columns, with the space inbetween, so i have just a number in the days until sprout column
+lubesprout<-lubesprout%>%separate(DaysUntilSprout, into = c("DaysUntilSprout","Day"), sep = " ")
+#now it no longer knows what day is, so it changes it to an NA.
+
+#look at propagule things to see if any affect on duration to sprouting
+#now plot the data with our factors to see if we thing there is a relationship 
+
+lubesprout$DaysUntilSprout<-as.numeric(lubesprout$DaysUntilSprout)
+
+#width
+AWplot<-lubesprout%>%
+  filter(Species=="AVGE")%>%
+  ggplot(aes(y=DaysUntilSprout, x=`Width-mm`, color=Treatment))+
+  geom_point()+
+  ggtitle("AVGE")
+
+AWplot
+
+LWplot<-lubesprout%>%
+  filter(Species=="LARA")%>%
+  ggplot(aes(y=DaysUntilSprout, x=`Width-mm`, color=Treatment))+
+  geom_point()+
+  ggtitle("LARA")
+
+LWplot
+
+#prop mass
+AMplot<-lubesprout%>%
+   filter(Species=="AVGE")%>%
+  ggplot(aes(x=Mass, y=DaysUntilSprout, color=Treatment))+
+  geom_point()+
+  ggtitle("AVGE")
+
+AMplot
+
+
+#lara mass
+LMplot<-lubesprout%>%
+   filter(Species=="LARA")%>%
+  ggplot(aes(x=Mass, y=DaysUntilSprout, color=Treatment))+
+  geom_point()+
+  ggtitle("LARA")
+
+LMplot
+
+
+#prop length
+ALplot<-lubesprout%>%
+   filter(Species=="AVGE")%>%
+  ggplot(aes(x=Mass, y=DaysUntilSprout, color=Treatment))+
+  geom_point()+
+  ggtitle("AVGE")
+
+ALplot
+
+
+LLplot<-lubesprout%>%
+   filter(Species=="LARA")%>%
+  ggplot(aes(x=Mass, y=DaysUntilSprout, color=Treatment))+
+  geom_point()+
+  ggtitle("LARA")
+
+LLplot
+
+
+
+lubesprout$`IntakeRadicleLength-cm`<-as.numeric(lubesprout$`IntakeRadicleLength-cm`)
+
+#radicle lenght
+
+Rplot<-lubesprout%>%
+  filter(Species=="AVGE")%>%
+  ggplot(aes(x=`IntakeRadicleLength-cm`, y=DaysUntilSprout, color=Treatment))+
+  geom_point()
+
+Rplot
+
+```
+
+
+Look at intake characteristics effect on days until sprouting, AVGE Table 5
 ```{r AVGE Poisson}
 #lenght
 ALplot<-lubesprout%>%
@@ -1110,7 +1198,7 @@ summary(sproutpoisson2)
 ```
 
 
-Cleaning data calculating proporiton sprouted on each day for plotting, visualized in different ways
+Cleaning data calculating proportion sprouted on each day for plotting, visualized in different ways
 ```{r Determine Percent Germinated}
 library(lubridate)
 
@@ -1492,11 +1580,15 @@ totalpatchplot
 
 
 
-need TLARA
+need TLARA, need to fix the code here, dunn test doesnt work probably because the days is still in LARAR
 
 This is running a KW test for LARA with the ones that didnt sprout removed plotting results for LARA
 ```{r FINAL KW choice LARA}
 #2) KW no sprout removed
+
+TLARA<-GermSprout%>%
+  filter(Species=="LARA")%>%
+  select(SiteID, Treatment, DaysUntilSprout)
 
 #filter to remove props that did not sprout
 LARAR<-TLARA%>%
