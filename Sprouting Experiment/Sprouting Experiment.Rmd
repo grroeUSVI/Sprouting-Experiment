@@ -11,10 +11,6 @@ Test
 
 # Data Cleaning Notes
 
-going to have to decide if I use the condition column, how I want to split it has these unique values "H""N" "P" "G" "N, P" "N, G" "P, N" "G, N" "N,G"
-
-lots of unique values for prop color
-
 ```{r Cleaning Data}
 library(readr)
 library(tidyverse)
@@ -23,7 +19,7 @@ library(tidyverse)
 
 sprout <- read_csv("Sprouting Experiment/data/E1 LARA_AVGE intake experiment Fall 2022 - MasterData.csv")
 
-sprout<-sprout%>%filter(`IntakeDate`!="11/7/22")#remove the one random intake on 11/7 remove
+sprout<-sprout%>%filter(`IntakeDate`!="11/7/22")#remove the one random intake on 11/7 
 
 ##replace the <0.01 with 0.005 (essentially <RL is changed to half of the reporting limit)
 sprout$`IntakeRadicleLength-cm`[sprout$`IntakeRadicleLength-cm`=="<0.1"]<-0.005
@@ -46,7 +42,6 @@ sprout$sprouted[is.na(sprout$sprouted)]<-0
 #filter the props by species
 LARA<-sprout%>%filter(Species=="LARA")
 AVGE<-sprout%>%filter(Species=="AVGE")
-
 
 
 #going to remove an outlier in AVGE (likely typo)
@@ -82,7 +77,7 @@ sprout$SproutDate<-mdy(sprout$SproutDate)
 sprout$IntakeDate<-mdy(sprout$IntakeDate)
 ```
 
-## Lara Intake across sites Kruskall Wallis Test
+## Lara Intake: Check for significant differences in mass, lenght, and width, across sites using a Kruskall Wallis Test
 
 ```{r Compare LARA intake Variables Across Sites}
 library(FSA)#for DunnPost Hoc
@@ -476,18 +471,49 @@ library(ggforce)#for sinaplots
 
 #making some violin plots, including a sina plot inside better representations of the distribution of the data
 
+VLARAmass<-PropViolinPlot(LARA, LARA$Mass, title1, "Mass (g)", "a","b","c", 2)
+
+VLARAmass<-VLARAmass+ylim(0,2)
+
+VLARAmass
+#first, get a version of the plot that you like, making example plot LARA mass
+
+#making these title objects so I can italisize the sp name in the titles
+title1<-expression(italic("L. racemosa")~"Seed Mass")
+
+testplot<-LARA%>%
+  ggplot(aes(x=SiteID, y=Mass, color=SiteID))+#setting my x and y values, 
+  geom_violin()+#makes the plot that follows shape of the data
+    geom_sina()+#adds all the dots to the violin plot needs ggforce library
+    geom_boxplot(width=0.1, color="black", alpha=0.5)+
+  ggtitle(title1)+
+  ylab("Mass (g)")+
+  xlab("Collection Site")+
+  theme(legend.position="none", plot.title = element_text(hjust = 0.5), panel.background = element_rect(fill = "white", colour = "grey50"))+#no legend, centered title, no background
+    scale_color_manual(name = "Site", values = c("darkgreen","salmon4", "olivedrab"))#sets the colors manually of the dots, and outlines of violin plots
+
+#testplot doesnt include the lettering added in function
+  
+
+testplot
+
+#then you can turn the plot into a function to make all of the plots for each combo of species and lenght, width, mass without copying and pasting the code a million times. Also if a change needs to be made to teh plot you can just modify the function and rerun the code
+
+
+
+
 #SPECIES:This is the cleaned dataframe I have filtered the dataframes so there is only one species in each dataframe
 #YVal: response variable
 #title: "put title you want in quotes"
 #ylab: "put ylab you want in quotes"
-#CP: tuke letter ID for label for X value One
-#SB: label for X Value Two
-#VSP: label for X Value Three
-#Yplace: number of units above the max y value you want to put your labels
+#CP: letter above compass point from KW/Dunn post hoc
+#SB: Letter above salt river from KW/Dunn post hoc
+#VSP: letter above VSPfrom KW/Dunn post hoc
+#Yplace: number of units above the max y value you want to put your letters
 
 PropViolinPlot<-function(SPECIES,YVal, title, ylab, CP, SB, VSP,Yplace){SPECIES%>%
   ggplot(aes(x=SiteID, y=YVal, color=SiteID))+#setting my x and y values, 
-  geom_violin()+#
+  geom_violin()+#makes the plot that follows shape of the data
     geom_sina()+#adds all the dots to the violin plot needs ggforce library
     geom_boxplot(width=0.1, color="black", alpha=0.5)+
   ggtitle(title)+
@@ -515,6 +541,7 @@ title7<-expression(italic("A. germinans")~"Radicle Length")
 #plot LARA mass
 VLARAmass<-PropViolinPlot(LARA, LARA$Mass, title1, "Mass (g)", "a","b","c", 2)
 
+#set the y limits
 VLARAmass<-VLARAmass+ylim(0,2)
 
 VLARAmass
@@ -600,7 +627,7 @@ LARAsem<-LARA%>%
 
 ```
 
-Visualizing float no float for both species, and sprout or no sprout, across treatments seeing how floating affects sprouting while taking into account treatment
+Visualizing float no float for both species, and sprout or no sprout, across treatments seeing how floating affects sprouting while taking into account treatment, this is just exploring the data not in the paper
 
 ```{r Float/No Float}
 #only six LARA props didn't float, so not enough sink to include as relevant, not visualizing
