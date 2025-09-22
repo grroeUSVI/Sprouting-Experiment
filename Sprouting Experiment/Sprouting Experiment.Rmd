@@ -471,11 +471,6 @@ library(ggforce)#for sinaplots
 
 #making some violin plots, including a sina plot inside better representations of the distribution of the data
 
-VLARAmass<-PropViolinPlot(LARA, LARA$Mass, title1, "Mass (g)", "a","b","c", 2)
-
-VLARAmass<-VLARAmass+ylim(0,2)
-
-VLARAmass
 #first, get a version of the plot that you like, making example plot LARA mass
 
 #making these title objects so I can italisize the sp name in the titles
