@@ -1580,7 +1580,7 @@ totalpatchplot
 
 
 
-need TLARA, need to fix the code here, dunn test doesnt work probably because the days is still in LARAR
+
 
 This is running a KW test for LARA with the ones that didnt sprout removed plotting results for LARA
 ```{r FINAL KW choice LARA}
@@ -1589,6 +1589,8 @@ This is running a KW test for LARA with the ones that didnt sprout removed plott
 TLARA<-GermSprout%>%
   filter(Species=="LARA")%>%
   select(SiteID, Treatment, DaysUntilSprout)
+
+TLARA$DaysUntilSprout<-as.numeric(TLARA$DaysUntilSprout)
 
 #filter to remove props that did not sprout
 LARAR<-TLARA%>%
@@ -1657,6 +1659,12 @@ This is running KW with the ones that didnt sprout removed for AVGE, and plottin
 
 ```{r FINAL KW choice AVGE}
 #2) KW no sprout removed
+
+TAVGE<-GermSprout%>%
+  filter(Species=="AVGE")%>%
+  select(SiteID, Treatment, DaysUntilSprout)
+
+TAVGE$DaysUntilSprout<-as.numeric(TAVGE$DaysUntilSprout)
 
 #filter to remove props that did not sprout
 AVGER<-TAVGE%>%
