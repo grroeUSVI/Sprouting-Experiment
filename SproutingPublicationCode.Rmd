@@ -6,8 +6,6 @@ editor_options:
   chunk_output_type: console
 ---
 
-
-
 ```{r Cleaning Data}
 library(readr)
 library(tidyverse)
@@ -35,6 +33,9 @@ sprout$sprouted<-ifelse(sprout$SproutDate=="NA",'0','1')
 
 #made not sprouted NA instead of 0, so changing NA to 0 in sprouted column
 sprout$sprouted[is.na(sprout$sprouted)]<-0
+
+sprout$SiteID<-gsub("STEER Basin", "STEER", sprout$SiteID)
+
 
 #filter the props by species
 LARA<-sprout%>%filter(Species=="LARA")
@@ -78,8 +79,10 @@ sprout$IntakeDate<-mdy(sprout$IntakeDate)
 Look at propagule bouyancy across collection sites, and across treatments
 
 ```{r Float/No Float}
-library(rcompanion)#posthoctest
+#library(rcompanion)#posthoctest
 library(ggpattern)
+library(patchwork)
+library(chisq.posthoc.test)
 
 #bouyancy compared across treatments
 
@@ -114,6 +117,11 @@ siteLARA <- LARA %>%
   summarise(count = n(), .groups = "drop")
 #spread semi evenly across sites
 
+#adding a row for STEER did not float with value of 0
+siteLARA <- rbind(
+  siteLARA,
+  data.frame(SiteID = "STEER", count = 0, Float = "N"))
+
 #this is looking at the total number of AVGE props from each site that floated or not
 siteAVGE <- AVGE %>%
   group_by( SiteID, Float) %>%
@@ -126,19 +134,58 @@ AVGEFbar1<-ggplot(data=siteAVGE, aes(x=SiteID, y=count, fill=Float))+
 
 AVGEFbar1
 
+#count of number that floated vs sank
+npropsAVGE<-c("n=87","n=30","n=80","n=38","n=30","n=89")
+
 #making a nice version of this plot, how many floated/sank from each site (this plot Figure 3)
 AVGEFbar1<-ggplot(data=siteAVGE, aes(x=SiteID, y=count, fill=Float))+
   geom_col(position="dodge")+
   ggtitle(expression(italic("A. germinans") ~ "Propagule Bouyancy Test"))+
+   geom_text(aes(label = npropsAVGE),
+            position = position_dodge(width = 0.9),
+            vjust = -0.3,
+            size = 3.0) +
   ylab("Propagule Count")+
   xlab("Collection Site")+
-  scale_fill_manual(values = c("Y" = "darkgreen", "N" = "maroon"),
+  scale_fill_manual(values = c("Y" = "lightblue", "N" = "darkblue"),
                     name = "Bouyancy", labels=c( "Did Not Float", "Floated"))+
   theme(plot.title = element_text(hjust = 0.5), panel.background = element_rect(fill = "white", colour = "grey50"))
   
 
 AVGEFbar1
 
+#going to plot LARA
+
+siteLARA<-siteLARA%>%
+  filter(Float!="NA")
+
+npropsLARA<-c("n=1","n=117","n=119","n=4","n=104", "n=0")
+
+siteLARA$nprops <- npropsLARA
+
+LARAbar1<-ggplot(data=siteLARA, aes(x=SiteID, y=count, fill=Float))+
+  geom_col(position="dodge")+
+  ggtitle(expression(italic("L. racemosa") ~ "Propagule Bouyancy Test"))+
+   geom_text(aes(label = nprops),
+            position = position_dodge(width = 0.9),
+            vjust = -0.3,
+            size = 3.0) +
+  ylab("Propagule Count")+
+  xlab("Collection Site")+
+  scale_fill_manual(values = c("Y" = "lightblue", "N" = "darkblue"),
+                    name = "Bouyancy", labels=c( "Did Not Float", "Floated"))+
+  theme(plot.title = element_text(hjust = 0.5), panel.background = element_rect(fill = "white", colour = "grey50"))
+
+LARAbar1
+
+#combine plots
+
+Float<-LARAbar1+AVGEFbar1+  plot_layout(guides = "collect")
+Float
+
+#good chi square test reference
+
+#https://lukaswallrich.github.io/GoldCoreQuants/chi-squared-tests-for-associations-between-categorical-variables.html 
 
 #more sink from compass and steer, more float from vessup salt pond going to test statistical difference with chi squared test
 
@@ -153,7 +200,28 @@ chitest
 #data:  chiframe[, -1]
 #X-squared = 68.323, df = 2, p-value = 1.458e-15
 
+#post hoc
 
+
+chitest$expected
+#making sure that the expected values arent too low, if sample size is low, then you need to either correct the chi squred value or simulate more replicates, but we are good here
+
+chitest$residuals
+
+#             N         Y
+#Compass [1,]  2.712801 -3.038794
+#Steer [2,]  1.768784 -1.981335
+#Vessup [3,] -4.451244  4.986143
+
+rownames(chiframe) <- chiframe$SiteID
+
+#looking into running chi squared post hoc test
+chiframet<-as.table(as.matrix(chiframe[,-1]))
+df<-data_frame(chiframet)
+
+#this doesn't look correct, need to look into this more
+chisq.posthoc.test(chiframet,
+                   method = "bonferroni")
 ```
 
 
@@ -578,11 +646,13 @@ Visualizing propagule characteristics determining differences between sites, sho
 ```{r Site Visualizations Sinaplots}
 library(tidyverse)
 library(patchwork)
-library(gridExtra)
 library(ggforce)#for sinaplots
 #https://datavizpyr.com/sinaplot-vs-violin-plot-why-sinaplot-is-better-than-violinplot/
 
 #making some violin plots, including a sina plot inside better representations of the distribution of the data
+
+#link talking about what sinaplots are and why to use them
+#https://datavizpyr.com/sinaplot-vs-violin-plot-why-sinaplot-is-better-than-violinplot/
 
 #first, get a version of the plot that you like, making example plot LARA mass
 
@@ -592,7 +662,7 @@ title1<-expression(italic("L. racemosa")~"Seed Mass")
 testplot<-LARA%>%
   ggplot(aes(x=SiteID, y=Mass, color=SiteID))+#setting my x and y values, 
   geom_violin()+#makes the plot that follows shape of the data
-    geom_sina()+#adds all the dots to the violin plot needs ggforce library
+    geom_sina(alpha=0.5)+#adds all the dots to the violin plot needs ggforce library
     geom_boxplot(width=0.1, color="black", alpha=0.5)+
   ggtitle(title1)+
   ylab("Mass (g)")+
@@ -622,7 +692,7 @@ testplot
 PropViolinPlot<-function(SPECIES,YVal, title, ylab, CP, SB, VSP,Yplace){SPECIES%>%
   ggplot(aes(x=SiteID, y=YVal, color=SiteID))+#setting my x and y values, 
   geom_violin()+#makes the plot that follows shape of the data
-    geom_sina()+#adds all the dots to the violin plot needs ggforce library
+    geom_sina(alpha=0.3)+#adds all the dots to the violin plot needs ggforce library
     geom_boxplot(width=0.1, color="black", alpha=0.5)+
   ggtitle(title)+
   ylab(ylab)+
@@ -630,7 +700,7 @@ PropViolinPlot<-function(SPECIES,YVal, title, ylab, CP, SB, VSP,Yplace){SPECIES%
   theme(legend.position="none", plot.title = element_text(hjust = 0.5), panel.background = element_rect(fill = "white", colour = "grey50"))+#no legend, centered title, no background
     scale_color_manual(name = "Site", values = c("darkgreen","salmon4", "olivedrab"))+#sets the colors manually of the dots, and outlines of violin plots
   geom_text(aes(family="serif", fontface="plain"),size=6,x= "Compass Point" , y=Yplace, label=CP, colour="black")+#add first letter, family and fontface change font and remove bold
-  geom_text(aes(family="serif", fontface="plain"),size=6,x= "STEER Basin" , y=Yplace, label=SB, colour="black")+#add second letter
+  geom_text(aes(family="serif", fontface="plain"),size=6,x= "STEER" , y=Yplace, label=SB, colour="black")+#add second letter
   geom_text(aes(family="serif", fontface="plain"),size=6, x= "Vessup Salt Pond" , y=Yplace, label=VSP, colour="black")}#third letter 
 
 
@@ -691,14 +761,19 @@ VAVGEradlength<-VAVGEradlength+ylim(0,1.65)
 VAVGEradlength
 
 #combining plots with patchwork
-CharPlot<-(VAVGElength+VAVGEwidth+VAVGEmass)/(VLARAlength+VLARAwidth+VLARAmass)
+
+CharPlot<-(VLARAlength|VAVGElength)/(VLARAwidth|VAVGEwidth)/(VLARAmass|VAVGEmass)/ (plot_spacer()|VAVGEradlength)
+
 CharPlot
 
-#combining plots with Grid Arrange
-CharPlot<-grid.arrange(VAVGElength,VAVGEwidth,VAVGEmass,VLARAlength,VLARAwidth,VLARAmass,ncol=3)
-
-#two columns, add in radicle length to combined plot
-CharPlot1<-grid.arrange(VAVGElength,VLARAlength,VAVGEwidth,VLARAwidth,VAVGEmass,VLARAmass,VAVGEradlength, ncol=2)
+ggsave(
+  filename = "IntakeCharPlot1.jpg",  # output file name
+  plot = CharPlot,            # your ggplot object
+  width = 3000,                      # width in pixels?
+  height = 3200,                     # height in pixels?
+  units = "px",                      # set units to pixels
+  dpi = 300                          # resolution
+)
 
 ```
 
