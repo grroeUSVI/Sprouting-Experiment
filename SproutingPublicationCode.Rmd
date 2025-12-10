@@ -1801,6 +1801,75 @@ summary(masslogit)
 
 ```
 
+
+going to run a kaplin meyer curve analysis to analyze time until sprouting.. 
+biostatssquid is a good source to walk through this analysis
+
+The theory behind it all
+https://biostatsquid.com/survival-time-analysis-easily-explained/
+https://biostatsquid.com/kaplan-meier-curve/
+https://biostatsquid.com/easy-log-rank-test/
+https://biostatsquid.com/easy-cox-regression-for-survival-analysis/
+
+the code (how to do it)
+https://biostatsquid.com/easy-survival-analysis-r-tutorial/ 
+
+another tutorial I like the first one better https://www.sthda.com/english/wiki/survival-analysis-basics
+
+```{r Kaplin Meyer Survival Curve}
+library(survival)
+library(ggsurvfit)
+library(survminer)
+library(tidyverse)
+
+#this is me stepping through the tutorial 
+df <- survival::rotterdam
+
+#censoring status: the values in this column are 1 = event happened, 0 = censored (or TRUE and FALSE). 
+
+    #so in my case this would mean yes it sprouted, no it did not sprout
+
+
+#time to event: from the start time (e.g., time of diagnosis) to the end time (the event happened or the last day of follow-up
+
+
+df <- df %>% mutate(status = death)
+table(df$status)
+df <- df %>% mutate(dtime_yrs = dtime/365.25)
+surv_obj <- Surv(time = df$dtime_yrs, event = df$status)
+
+
+s1 <- survfit(surv_obj ~ 1, data = df)
+summary(s1)
+
+#plot 
+km_curve <- ggsurvfit(s1, linewidth = 1) +
+  labs(x = 'Years', y = 'Overall survival') +
+  add_confidence_interval() +
+  add_risktable() +
+  scale_ggsurvfit() + 
+  coord_cartesian(xlim = c(0, 8))
+
+km_curve
+
+s2 <- survfit(surv_obj ~ chemo, data = df)
+ggsurvplot(s2, data = df,
+           size = 1,
+           palette = c('#E7B800', '#2e9fdf'),
+           censor.shape = '|', censor.size = 4,
+           conf.int = TRUE,
+           pval = TRUE,
+           risk.table = TRUE,
+           risk.table.col = 'strata',
+           legend.labs = list('0' = 'No chemo', '1' = 'Chemo'),
+           risk.table.height = 0.25,
+           ggtheme = theme_bw())
+
+```
+
+
+
+
 Cleaning data calculating proportion sprouted on each day for plotting, visualized in different ways
 ```{r Determine Percent Germinated}
 library(lubridate)
