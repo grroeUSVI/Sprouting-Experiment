@@ -1865,8 +1865,26 @@ ggsurvplot(s2, data = df,
            risk.table.height = 0.25,
            ggtheme = theme_bw())
 
+#log rank test
+logrankres_chemo <- survdiff(Surv(dtime_yrs, status) ~ chemo, data = df)
+logrankres_chemo
+
+logrankres_hor <- survdiff(Surv(dtime_yrs, status) ~ hormon, data = df)
+logrankres_hor
+
+
+#cox test
+cox_res <- coxph(Surv(dtime_yrs, status) ~ hormon + chemo + size + er + pgr + nodes + meno + grade + age, data = df)
+cox_res
 ```
 
+Running this with my data
+
+```{r}
+
+
+
+```
 
 
 
