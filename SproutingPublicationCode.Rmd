@@ -6,8 +6,6 @@ editor_options:
   chunk_output_type: console
 ---
 
-
-
 ```{r Cleaning Data}
 library(readr)
 library(tidyverse)
@@ -35,6 +33,9 @@ sprout$sprouted<-ifelse(sprout$SproutDate=="NA",'0','1')
 
 #made not sprouted NA instead of 0, so changing NA to 0 in sprouted column
 sprout$sprouted[is.na(sprout$sprouted)]<-0
+
+sprout$SiteID<-gsub("STEER Basin", "STEER", sprout$SiteID)
+
 
 #filter the props by species
 LARA<-sprout%>%filter(Species=="LARA")
@@ -78,8 +79,10 @@ sprout$IntakeDate<-mdy(sprout$IntakeDate)
 Look at propagule bouyancy across collection sites, and across treatments
 
 ```{r Float/No Float}
-library(rcompanion)#posthoctest
+#library(rcompanion)#posthoctest
 library(ggpattern)
+library(patchwork)
+library(chisq.posthoc.test)
 
 #bouyancy compared across treatments
 
@@ -114,6 +117,11 @@ siteLARA <- LARA %>%
   summarise(count = n(), .groups = "drop")
 #spread semi evenly across sites
 
+#adding a row for STEER did not float with value of 0
+siteLARA <- rbind(
+  siteLARA,
+  data.frame(SiteID = "STEER", count = 0, Float = "N"))
+
 #this is looking at the total number of AVGE props from each site that floated or not
 siteAVGE <- AVGE %>%
   group_by( SiteID, Float) %>%
@@ -126,19 +134,58 @@ AVGEFbar1<-ggplot(data=siteAVGE, aes(x=SiteID, y=count, fill=Float))+
 
 AVGEFbar1
 
+#count of number that floated vs sank
+npropsAVGE<-c("n=87","n=30","n=80","n=38","n=30","n=89")
+
 #making a nice version of this plot, how many floated/sank from each site (this plot Figure 3)
 AVGEFbar1<-ggplot(data=siteAVGE, aes(x=SiteID, y=count, fill=Float))+
   geom_col(position="dodge")+
   ggtitle(expression(italic("A. germinans") ~ "Propagule Bouyancy Test"))+
+   geom_text(aes(label = npropsAVGE),
+            position = position_dodge(width = 0.9),
+            vjust = -0.3,
+            size = 3.0) +
   ylab("Propagule Count")+
   xlab("Collection Site")+
-  scale_fill_manual(values = c("Y" = "darkgreen", "N" = "maroon"),
+  scale_fill_manual(values = c("Y" = "lightblue", "N" = "darkblue"),
                     name = "Bouyancy", labels=c( "Did Not Float", "Floated"))+
   theme(plot.title = element_text(hjust = 0.5), panel.background = element_rect(fill = "white", colour = "grey50"))
   
 
 AVGEFbar1
 
+#going to plot LARA
+
+siteLARA<-siteLARA%>%
+  filter(Float!="NA")
+
+npropsLARA<-c("n=1","n=117","n=119","n=4","n=104", "n=0")
+
+siteLARA$nprops <- npropsLARA
+
+LARAbar1<-ggplot(data=siteLARA, aes(x=SiteID, y=count, fill=Float))+
+  geom_col(position="dodge")+
+  ggtitle(expression(italic("L. racemosa") ~ "Propagule Bouyancy Test"))+
+   geom_text(aes(label = nprops),
+            position = position_dodge(width = 0.9),
+            vjust = -0.3,
+            size = 3.0) +
+  ylab("Propagule Count")+
+  xlab("Collection Site")+
+  scale_fill_manual(values = c("Y" = "lightblue", "N" = "darkblue"),
+                    name = "Bouyancy", labels=c( "Did Not Float", "Floated"))+
+  theme(plot.title = element_text(hjust = 0.5), panel.background = element_rect(fill = "white", colour = "grey50"))
+
+LARAbar1
+
+#combine plots
+
+Float<-LARAbar1+AVGEFbar1+  plot_layout(guides = "collect")
+Float
+
+#good chi square test reference
+
+#https://lukaswallrich.github.io/GoldCoreQuants/chi-squared-tests-for-associations-between-categorical-variables.html 
 
 #more sink from compass and steer, more float from vessup salt pond going to test statistical difference with chi squared test
 
@@ -153,9 +200,29 @@ chitest
 #data:  chiframe[, -1]
 #X-squared = 68.323, df = 2, p-value = 1.458e-15
 
+#post hoc
 
+
+chitest$expected
+#making sure that the expected values arent too low, if sample size is low, then you need to either correct the chi squred value or simulate more replicates, but we are good here
+
+chitest$residuals
+
+#             N         Y
+#Compass [1,]  2.712801 -3.038794
+#Steer [2,]  1.768784 -1.981335
+#Vessup [3,] -4.451244  4.986143
+
+rownames(chiframe) <- chiframe$SiteID
+
+#looking into running chi squared post hoc test
+chiframet<-as.table(as.matrix(chiframe[,-1]))
+df<-data_frame(chiframet)
+
+#this doesn't look correct, need to look into this more
+chisq.posthoc.test(chiframet,
+                   method = "bonferroni")
 ```
-
 
 
 mean and sem of intake characteristics (MEAN/SEM Intake Variables Table X)
@@ -578,11 +645,13 @@ Visualizing propagule characteristics determining differences between sites, sho
 ```{r Site Visualizations Sinaplots}
 library(tidyverse)
 library(patchwork)
-library(gridExtra)
 library(ggforce)#for sinaplots
-#https://datavizpyr.com/sinaplot-vs-violin-plot-why-sinaplot-is-better-than-violinplot/
+
 
 #making some violin plots, including a sina plot inside better representations of the distribution of the data
+
+#link talking about what sinaplots are and why to use them
+#https://datavizpyr.com/sinaplot-vs-violin-plot-why-sinaplot-is-better-than-violinplot/
 
 #first, get a version of the plot that you like, making example plot LARA mass
 
@@ -592,7 +661,7 @@ title1<-expression(italic("L. racemosa")~"Seed Mass")
 testplot<-LARA%>%
   ggplot(aes(x=SiteID, y=Mass, color=SiteID))+#setting my x and y values, 
   geom_violin()+#makes the plot that follows shape of the data
-    geom_sina()+#adds all the dots to the violin plot needs ggforce library
+    geom_sina(alpha=0.5)+#adds all the dots to the violin plot needs ggforce library
     geom_boxplot(width=0.1, color="black", alpha=0.5)+
   ggtitle(title1)+
   ylab("Mass (g)")+
@@ -622,7 +691,7 @@ testplot
 PropViolinPlot<-function(SPECIES,YVal, title, ylab, CP, SB, VSP,Yplace){SPECIES%>%
   ggplot(aes(x=SiteID, y=YVal, color=SiteID))+#setting my x and y values, 
   geom_violin()+#makes the plot that follows shape of the data
-    geom_sina()+#adds all the dots to the violin plot needs ggforce library
+    geom_sina(alpha=0.3)+#adds all the dots to the violin plot needs ggforce library
     geom_boxplot(width=0.1, color="black", alpha=0.5)+
   ggtitle(title)+
   ylab(ylab)+
@@ -630,7 +699,7 @@ PropViolinPlot<-function(SPECIES,YVal, title, ylab, CP, SB, VSP,Yplace){SPECIES%
   theme(legend.position="none", plot.title = element_text(hjust = 0.5), panel.background = element_rect(fill = "white", colour = "grey50"))+#no legend, centered title, no background
     scale_color_manual(name = "Site", values = c("darkgreen","salmon4", "olivedrab"))+#sets the colors manually of the dots, and outlines of violin plots
   geom_text(aes(family="serif", fontface="plain"),size=6,x= "Compass Point" , y=Yplace, label=CP, colour="black")+#add first letter, family and fontface change font and remove bold
-  geom_text(aes(family="serif", fontface="plain"),size=6,x= "STEER Basin" , y=Yplace, label=SB, colour="black")+#add second letter
+  geom_text(aes(family="serif", fontface="plain"),size=6,x= "STEER" , y=Yplace, label=SB, colour="black")+#add second letter
   geom_text(aes(family="serif", fontface="plain"),size=6, x= "Vessup Salt Pond" , y=Yplace, label=VSP, colour="black")}#third letter 
 
 
@@ -691,14 +760,19 @@ VAVGEradlength<-VAVGEradlength+ylim(0,1.65)
 VAVGEradlength
 
 #combining plots with patchwork
-CharPlot<-(VAVGElength+VAVGEwidth+VAVGEmass)/(VLARAlength+VLARAwidth+VLARAmass)
+
+CharPlot<-(VLARAlength|VAVGElength)/(VLARAwidth|VAVGEwidth)/(VLARAmass|VAVGEmass)/ (plot_spacer()|VAVGEradlength)
+
 CharPlot
 
-#combining plots with Grid Arrange
-CharPlot<-grid.arrange(VAVGElength,VAVGEwidth,VAVGEmass,VLARAlength,VLARAwidth,VLARAmass,ncol=3)
-
-#two columns, add in radicle length to combined plot
-CharPlot1<-grid.arrange(VAVGElength,VLARAlength,VAVGEwidth,VLARAwidth,VAVGEmass,VLARAmass,VAVGEradlength, ncol=2)
+ggsave(
+  filename = "IntakeCharPlot1.jpg",  # output file name
+  plot = CharPlot,            # your ggplot object
+  width = 3000,                      # width in pixels?
+  height = 3200,                     # height in pixels?
+  units = "px",                      # set units to pixels
+  dpi = 300                          # resolution
+)
 
 ```
 
@@ -771,7 +845,6 @@ print(cor_matrix)
 
 
 
-
 #start looking at just site and whether or not things float only
 BasicLogit<-glm(sprouted~SiteID+Float+Treatment, data=AVGE, family="binomial")
 summary(BasicLogit)
@@ -788,9 +861,20 @@ WidthLogit<-glm(sprouted~SiteID+Float+Treatment+`Width-mm`, data=AVGE, family="b
 summary(WidthLogit)
 #193.38
 
+masslogit<-glm(sprouted~SiteID+Float+Treatment+Mass, data=AVGE, family="binomial")
+summary(masslogit)
+#193.26
+
+#mass, no site
+NoSMassLogit<-glm(sprouted~Float+Treatment+Mass, data=AVGE, family="binomial")
+summary(NoSMassLogit)
+#191.13
+
 #exclude site not significant (Best Model!)
 NoSLengthLogit<-glm(sprouted~Float+Treatment+PropaguleLength, data=AVGE, family="binomial")
 summary(NoSLengthLogit)
+
+
 
 #Call:
 #glm(formula = sprouted ~ Float + Treatment + PropaguleLength, 
@@ -824,10 +908,295 @@ NoSWidthLogit<-glm(sprouted~Float+Treatment+`Width-mm`, data=AVGE, family="binom
 summary(NoSWidthLogit)
 #190.92
 
+Basic<-glm(sprouted~Treatment+SiteID, data=AVGE, family="binomial")
+summary(Basic)
+#191.39
 
+Basic1<-glm(sprouted~Treatment, data=AVGE, family="binomial")
+summary(Basic1)
+#189.53
 
 ```
 
+
+
+
+Rerunning all combonations of AVGE logistic regressions
+
+NEED TO READ INTO QQ PLOT THINGS
+```{r}
+#treatment only
+Basic1<-glm(sprouted~Treatment, data=AVGE, family="binomial")
+summary(Basic1)
+#189.53
+
+#testing assumptions of bestfit model
+qqnorm(residuals(Basic1, type = "pearson"))
+
+#treatment&siteID
+Basic<-glm(sprouted~Treatment+SiteID, data=AVGE, family="binomial")
+summary(Basic)
+#191.39
+
+#Treatment/Site/Length
+TSL<-glm(sprouted~Treatment+SiteID+PropaguleLength, data=AVGE, family="binomial")
+summary(TSL)
+#191.59
+
+#Treatment/Site/Width
+TSW<-glm(sprouted~Treatment+SiteID+`Width-mm`, data=AVGE, family="binomial")
+summary(TSW)
+#193.12
+
+#Treatment/Site/Mass
+TSM<-glm(sprouted~Treatment+SiteID+Mass, data=AVGE, family="binomial")
+summary(TSM)
+#193.39
+
+#Treatment&Float
+Basic3<-glm(sprouted~Treatment+Float, data=AVGE, family="binomial")
+summary(Basic3)
+#189.14
+
+#lenght
+BasicL<-glm(sprouted~Treatment+PropaguleLength, data=AVGE, family="binomial")
+summary(BasicL)
+#190.29
+
+#width
+BasicW<-glm(sprouted~Treatment+`Width-mm`, data=AVGE, family="binomial")
+summary(BasicW)
+#190.88
+
+#mass
+BasicM<-glm(sprouted~Treatment+Mass, data=AVGE, family="binomial")
+summary(BasicM)
+#191.53
+
+#flaot length
+#exclude site not significant (Best Model!)
+NoSLengthLogit<-glm(sprouted~Float+Treatment+PropaguleLength, data=AVGE, family="binomial")
+summary(NoSLengthLogit)
+
+
+#Call:
+#glm(formula = sprouted ~ Float + Treatment + PropaguleLength, 
+#    family = "binomial", data = AVGE)
+
+#Coefficients:
+#                Estimate Std. Error z value Pr(>|z|)    
+#(Intercept)      -0.1461     1.2323  -0.119    0.906    
+#FloatY            0.8115     0.4381   1.852    0.064 .  
+#TreatmentFresh    6.3170     1.0612   5.953 2.64e-09 ***
+#TreatmentSalt     5.8018     0.8123   7.142 9.20e-13 ***
+#TreatmentSoil     3.5559     0.4419   8.046 8.54e-16 ***
+#PropaguleLength  -0.8842     0.5675  -1.558    0.119    
+#---
+#Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+#(Dispersion parameter for binomial family taken to be 1)
+
+#    Null deviance: 403.53  on 353  degrees of freedom
+#Residual deviance: 176.66  on 348  degrees of freedom
+#AIC: 188.66
+
+#Number of Fisher Scoring iterations: 7
+
+
+#testing assumptions of bestfit model
+qqnorm(residuals(NoSLengthLogit, type = "pearson"))
+
+
+#float, width
+NoSWidthLogit<-glm(sprouted~Float+Treatment+`Width-mm`, data=AVGE, family="binomial")
+summary(NoSWidthLogit)
+#190.92
+
+#flaotmass
+NoSMassLogit<-glm(sprouted~Float+Treatment+Mass, data=AVGE, family="binomial")
+summary(NoSMassLogit)
+#191.13
+
+#site/float
+BasicLogit<-glm(sprouted~SiteID+Float+Treatment, data=AVGE, family="binomial")
+summary(BasicLogit)
+#191.41
+
+#site/float/length
+
+LengthLogit<-glm(sprouted~SiteID+Float+Treatment+PropaguleLength, data=AVGE, family="binomial")
+summary(LengthLogit)
+#190.24
+
+#site/Float/width
+WidthLogit<-glm(sprouted~SiteID+Float+Treatment+`Width-mm`, data=AVGE, family="binomial")
+summary(WidthLogit)
+#193.38
+
+#site/Float/Mass
+masslogit<-glm(sprouted~SiteID+Float+Treatment+Mass, data=AVGE, family="binomial")
+summary(masslogit)
+#193.26
+```
+
+
+rerunning all combinations of LARA logistic regression
+
+```{r}
+#treatment only
+Basic1<-glm(sprouted~Treatment, data=LARA, family="binomial")
+summary(Basic1)
+#288.8
+
+#treatment&siteID
+Basic<-glm(sprouted~Treatment+SiteID, data=LARA, family="binomial")
+summary(Basic)
+#292.12
+
+#Treatment/Site/Length
+TSL<-glm(sprouted~Treatment+SiteID+PropaguleLength, data=LARA, family="binomial")
+summary(TSL)
+#289.44
+
+#Treatment/Site/Width
+TSW<-glm(sprouted~Treatment+SiteID+`Width-mm`, data=LARA, family="binomial")
+summary(TSW)
+#288.39
+
+#Treatment/Site/Mass
+TSM<-glm(sprouted~Treatment+SiteID+Mass, data=LARA, family="binomial")
+summary(TSM)
+#285.04
+
+#Treatment&Float
+Basic3<-glm(sprouted~Treatment+Float, data=LARA, family="binomial")
+summary(Basic3)
+#282.18
+
+#lenght
+BasicL<-glm(sprouted~Treatment+PropaguleLength, data=LARA, family="binomial")
+summary(BasicL)
+#190.29
+
+#width
+BasicW<-glm(sprouted~Treatment+`Width-mm`, data=LARA, family="binomial")
+summary(BasicW)
+# 285.5
+
+#mass
+BasicM<-glm(sprouted~Treatment+Mass, data=LARA, family="binomial")
+summary(BasicM)
+#191.53
+
+#flaot length
+#exclude site not significant (Best Model!)
+NoSLengthLogit<-glm(sprouted~Float+Treatment+PropaguleLength, data=LARA, family="binomial")
+summary(NoSLengthLogit)
+#282.17
+
+
+#float, width
+NoSWidthLogit<-glm(sprouted~Float+Treatment+`Width-mm`, data=LARA, family="binomial")
+summary(NoSWidthLogit)
+#278.27
+
+#flaotmass
+NoSMassLogit<-glm(sprouted~Float+Treatment+Mass, data=LARA, family="binomial")
+summary(NoSMassLogit)
+#278.65
+
+
+#testing assumptions of bestfit model
+qqnorm(residuals(NoSMassLogit, type = "pearson"))
+
+#site/float
+BasicLogit<-glm(sprouted~SiteID+Float+Treatment, data=LARA, family="binomial")
+summary(BasicLogit)
+#285.43
+
+#site/float/length
+
+LengthLogit<-glm(sprouted~SiteID+Float+Treatment+PropaguleLength, data=LARA, family="binomial")
+summary(LengthLogit)
+# 283.92
+
+#site/Float/width
+WidthLogit<-glm(sprouted~SiteID+Float+Treatment+`Width-mm`, data=LARA, family="binomial")
+summary(WidthLogit)
+#280.89
+
+#site/Float/Mass
+masslogit<-glm(sprouted~SiteID+Float+Treatment+Mass, data=LARA, family="binomial")
+summary(masslogit)
+#279.14
+```
+
+To cleanup code, this doesnt currently work want to make a function to run all the logisitic regressions, then can run for all poissons/logistic regressions
+
+
+```{r}
+
+explanitorylist<-c("Treatment","Treatment + SiteID","Treatment + Buoyancy", "Treatment + Length","Treatment + Width", "Treatment + Mass", "Treatment + Buoyancy + Length", "Treatment + Buoyancy + Width","Treatment + Buoyancy + Mass","Treatment + SiteID + Buoyancy","Treatment + SiteID + Buoyancy + Length","Treatment + SiteID + Buoyancy + Width", "Treatment + SiteID + Buoyancy + Mass")
+
+#writing a function to loop through all of these and put them as 
+function(list,responseVAR, data, model){
+  for ()
+  glm(response~[i] )
+  
+}
+run_logistic_models <- function(data, response) {
+  
+  # List of model formulas as strings
+  model_formulas <- c(
+    "Treatment",
+    "Treatment + SiteID",
+    "Treatment + Buoyancy",
+    "Treatment + Length",
+    "Treatment + Width",
+    "Treatment + Mass",
+    "Treatment + Buoyancy + Length",
+    "Treatment + Buoyancy + Width",
+    "Treatment + Buoyancy + Mass",
+    "Treatment + SiteID + Buoyancy",
+    "Treatment + SiteID + Buoyancy + Length",
+    "Treatment + SiteID + Buoyancy + Width",
+    "Treatment + SiteID + Buoyancy + Mass"
+  )
+  
+  # Initialize lists to store models and AICs
+  models <- list()
+  aic_values <- numeric(length(model_formulas))
+  
+  # Fit each model
+  for (i in seq_along(model_formulas)) {
+    f <- as.formula(paste(response, "~", model_formulas[i]))
+    fit <- glm(f, data = data, family = binomial)
+    models[[i]] <- fit
+    aic_values[i] <- AIC(fit)
+  }
+  
+  # Create AIC table
+  aic_table <- data.frame(
+    Model = model_formulas,
+    AIC = aic_values,
+    stringsAsFactors = FALSE
+  )
+  
+  # Calculate ΔAIC
+  aic_table$Delta_AIC <- aic_table$AIC - min(aic_table$AIC)
+  
+  # Calculate AIC weights
+  aic_table$Weight <- exp(-0.5 * aic_table$Delta_AIC) /
+    sum(exp(-0.5 * aic_table$Delta_AIC))
+  
+  # Sort by AIC
+  aic_table <- aic_table[order(aic_table$AIC), ]
+  
+  return(list(AIC_table = aic_table, Models = models))
+}
+
+
+```
 
 sprouted 0/1, LARA logisitic regression best model included Table 6 
 ```{r LARA Only Logit}
@@ -1196,6 +1565,327 @@ summary(sproutpoisson2)
 
 
 ```
+
+
+Rerunning all combonations of AVGE poisson regressions
+
+NEED TO READ INTO QQ PLOT THINGS
+```{r}
+#treatment only
+Basic1<-glm(DaysUntilSprout~Treatment, data=AVGElube, family="poisson")
+summary(Basic1)
+#1473.2
+
+#testing assumptions of bestfit model
+qqnorm(residuals(Basic1, type = "pearson"))
+
+#treatment&siteID
+Basic<-glm(DaysUntilSprout~Treatment+SiteID, data=AVGElube, family="poisson")
+summary(Basic)
+#1455.2
+
+#Treatment/Site/Length
+TSL<-glm(DaysUntilSprout~Treatment+SiteID+PropaguleLength, data=AVGElube, family="poisson")
+summary(TSL)
+#1445.3
+
+#Treatment/Site/Width
+TSW<-glm(DaysUntilSprout~Treatment+SiteID+`Width-mm`, data=AVGElube, family="poisson")
+summary(TSW)
+#1442.6
+
+#Treatment/Site/Mass
+TSM<-glm(DaysUntilSprout~Treatment+SiteID+Mass, data=AVGElube, family="poisson")
+summary(TSM)
+#1436.6
+
+#Treatment&Float
+Basic3<-glm(DaysUntilSprout~Treatment+Float, data=AVGElube, family="poisson")
+summary(Basic3)
+#1462.6
+
+#lenght
+BasicL<-glm(DaysUntilSprout~Treatment+PropaguleLength, data=AVGElube, family="poisson")
+summary(BasicL)
+#1456.7
+
+#width
+BasicW<-glm(DaysUntilSprout~Treatment+`Width-mm`, data=AVGElube, family="poisson")
+summary(BasicW)
+#1452.7
+
+#mass
+BasicM<-glm(DaysUntilSprout~Treatment+Mass, data=AVGElube, family="poisson")
+summary(BasicM)
+#1446.3
+
+#flaot length
+NoSLengthLogit<-glm(DaysUntilSprout~Float+Treatment+PropaguleLength, data=AVGElube, family="poisson")
+summary(NoSLengthLogit)
+#1452.3
+
+
+#float, width
+NoSWidthLogit<-glm(DaysUntilSprout~Float+Treatment+`Width-mm`, data=AVGElube, family="poisson")
+summary(NoSWidthLogit)
+#1447.6
+
+#flaotmass
+NoSMassLogit<-glm(DaysUntilSprout~Float+Treatment+Mass, data=AVGElube, family="poisson")
+summary(NoSMassLogit)
+#1440.7
+
+#site/float
+BasicLogit<-glm(DaysUntilSprout~SiteID+Float+Treatment, data=AVGElube, family="poisson")
+summary(BasicLogit)
+#1446
+
+#site/float/length
+
+LengthLogit<-glm(DaysUntilSprout~SiteID+Float+Treatment+PropaguleLength, data=AVGElube, family="poisson")
+summary(LengthLogit)
+#1441.3
+
+#site/Float/width
+WidthLogit<-glm(DaysUntilSprout~SiteID+Float+Treatment+`Width-mm`, data=AVGElube, family="poisson")
+summary(WidthLogit)
+#1437.6
+
+#site/Float/Mass BEST MODEL!!!
+masslogit<-glm(DaysUntilSprout~SiteID+Float+Treatment+Mass, data=AVGElube, family="poisson")
+summary(masslogit)
+#1433.5
+
+#Call:
+#glm(formula = DaysUntilSprout ~ SiteID + Float + Treatment + 
+#    Mass, family = "poisson", data = AVGElube)
+
+#Coefficients:
+#                       Estimate Std. Error z value Pr(>|z|)    
+#(Intercept)             2.97785    0.09083  32.784  < 2e-16 ***
+#SiteIDSTEER            -0.16832    0.05051  -3.332 0.000861 ***
+#FloatY                 -0.10586    0.04718  -2.244 0.024858 *  
+#TreatmentFresh         -0.72493    0.08454  -8.575  < 2e-16 ***
+#TreatmentSalt          -0.10360    0.08098  -1.279 0.200808    
+#TreatmentSoil          -0.46857    0.08302  -5.644 1.66e-08 ***
+#Mass                   -0.15739    0.04153  -3.790 0.000151 ***
+#---
+#Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+#(Dispersion parameter for poisson family taken to be 1)
+
+#    Null deviance: 570.53  on 266  degrees of freedom
+#Residual deviance: 350.79  on 259  degrees of freedom
+#AIC: 1433.5
+
+#Number of Fisher Scoring iterations: 4
+
+
+```
+
+
+rerunning all combinations of LARA poisson regression
+
+```{r}
+#treatment only
+Basic1<-glm(DaysUntilSprout~Treatment, data=LARAlube, family="poisson")
+summary(Basic1)
+#1555.4
+
+
+
+#treatment&siteID
+Basic<-glm(DaysUntilSprout~Treatment+SiteID, data=LARAlube, family="poisson")
+summary(Basic)
+#1536.5
+
+#Treatment/Site/Length
+TSL<-glm(DaysUntilSprout~Treatment+SiteID+PropaguleLength, data=LARAlube, family="poisson")
+summary(TSL)
+#1536
+
+#Treatment/Site/Width
+TSW<-glm(DaysUntilSprout~Treatment+SiteID+`Width-mm`, data=LARAlube, family="poisson")
+summary(TSW)
+#1538.3
+
+#Treatment/Site/Mass
+TSM<-glm(DaysUntilSprout~Treatment+SiteID+Mass, data=LARAlube, family="poisson")
+summary(TSM)
+#1538.3
+
+#Treatment&Float
+Basic3<-glm(DaysUntilSprout~Treatment+Float, data=LARAlube, family="poisson")
+summary(Basic3)
+#1541.3
+
+#lenght
+BasicL<-glm(DaysUntilSprout~Treatment+PropaguleLength, data=LARAlube, family="poisson")
+summary(BasicL)
+#1541.9
+
+#width
+BasicW<-glm(DaysUntilSprout~Treatment+`Width-mm`, data=LARAlube, family="poisson")
+summary(BasicW)
+#1556.6
+
+#mass
+BasicM<-glm(DaysUntilSprout~Treatment+Mass, data=LARAlube, family="poisson")
+summary(BasicM)
+#1551.2
+
+#flaot length
+NoSLengthLogit<-glm(DaysUntilSprout~Float+Treatment+PropaguleLength, data=LARAlube, family="poisson")
+summary(NoSLengthLogit)
+#1529.2
+
+
+#float, width
+NoSWidthLogit<-glm(DaysUntilSprout~Float+Treatment+`Width-mm`, data=LARAlube, family="poisson")
+summary(NoSWidthLogit)
+#1542.2
+
+#flaotmass
+NoSMassLogit<-glm(DaysUntilSprout~Float+Treatment+Mass, data=LARAlube, family="poisson")
+summary(NoSMassLogit)
+#1537.6
+
+#site/float
+BasicLogit<-glm(DaysUntilSprout~SiteID+Float+Treatment, data=LARAlube, family="poisson")
+summary(BasicLogit)
+#1520.4
+
+
+#Call:
+#glm(formula = DaysUntilSprout ~ SiteID + Float + Treatment, family = "poisson", 
+#    data = LARAlube)
+
+#Coefficients:
+#                       Estimate Std. Error z value Pr(>|z|)    
+#(Intercept)             2.42048    0.19023  12.724  < 2e-16 ***
+#SiteIDSTEER            -0.36029    0.07561  -4.765 1.89e-06 ***
+#SiteIDVessup Salt Pond -0.26187    0.07573  -3.458 0.000544 ***
+#FloatY                 -0.50807    0.16031  -3.169 0.001528 ** 
+#TreatmentFresh         -0.84253    0.10955  -7.691 1.46e-14 ***
+#TreatmentSalt          -0.36454    0.10115  -3.604 0.000313 ***
+#TreatmentSoil          -0.02727    0.10012  -0.272 0.785381    
+#---
+#Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+#(Dispersion parameter for poisson family taken to be 1)
+
+#    Null deviance: 901.09  on 259  degrees of freedom
+#Residual deviance: 756.25  on 253  degrees of freedom
+#  (2 observations deleted due to missingness)
+#AIC: 1520.4
+
+#Number of Fisher Scoring iterations: 5
+
+
+
+#site/float/length
+
+LengthLogit<-glm(DaysUntilSprout~SiteID+Float+Treatment+PropaguleLength, data=LARAlube, family="poisson")
+summary(LengthLogit)
+#1520.9
+
+#site/Float/width
+WidthLogit<-glm(DaysUntilSprout~SiteID+Float+Treatment+`Width-mm`, data=LARAlube, family="poisson")
+summary(WidthLogit)
+#1522.4
+
+#site/Float/Mass 
+masslogit<-glm(DaysUntilSprout~SiteID+Float+Treatment+Mass, data=LARAlube, family="poisson")
+summary(masslogit)
+#1522.4
+
+```
+
+
+going to run a kaplin meyer curve analysis to analyze time until sprouting.. 
+biostatssquid is a good source to walk through this analysis
+
+The theory behind it all
+https://biostatsquid.com/survival-time-analysis-easily-explained/
+https://biostatsquid.com/kaplan-meier-curve/
+https://biostatsquid.com/easy-log-rank-test/
+https://biostatsquid.com/easy-cox-regression-for-survival-analysis/
+
+the code (how to do it)
+https://biostatsquid.com/easy-survival-analysis-r-tutorial/ 
+
+another tutorial I like the first one better https://www.sthda.com/english/wiki/survival-analysis-basics
+
+```{r Kaplin Meyer Survival Curve}
+library(survival)
+library(ggsurvfit)
+library(survminer)
+library(tidyverse)
+
+#this is me stepping through the tutorial 
+df <- survival::rotterdam
+
+#censoring status: the values in this column are 1 = event happened, 0 = censored (or TRUE and FALSE). 
+
+    #so in my case this would mean yes it sprouted, no it did not sprout
+
+
+#time to event: from the start time (e.g., time of diagnosis) to the end time (the event happened or the last day of follow-up
+
+
+df <- df %>% mutate(status = death)
+table(df$status)
+df <- df %>% mutate(dtime_yrs = dtime/365.25)
+surv_obj <- Surv(time = df$dtime_yrs, event = df$status)
+
+
+s1 <- survfit(surv_obj ~ 1, data = df)
+summary(s1)
+
+#plot 
+km_curve <- ggsurvfit(s1, linewidth = 1) +
+  labs(x = 'Years', y = 'Overall survival') +
+  add_confidence_interval() +
+  add_risktable() +
+  scale_ggsurvfit() + 
+  coord_cartesian(xlim = c(0, 8))
+
+km_curve
+
+s2 <- survfit(surv_obj ~ chemo, data = df)
+ggsurvplot(s2, data = df,
+           size = 1,
+           palette = c('#E7B800', '#2e9fdf'),
+           censor.shape = '|', censor.size = 4,
+           conf.int = TRUE,
+           pval = TRUE,
+           risk.table = TRUE,
+           risk.table.col = 'strata',
+           legend.labs = list('0' = 'No chemo', '1' = 'Chemo'),
+           risk.table.height = 0.25,
+           ggtheme = theme_bw())
+
+#log rank test
+logrankres_chemo <- survdiff(Surv(dtime_yrs, status) ~ chemo, data = df)
+logrankres_chemo
+
+logrankres_hor <- survdiff(Surv(dtime_yrs, status) ~ hormon, data = df)
+logrankres_hor
+
+
+#cox test
+cox_res <- coxph(Surv(dtime_yrs, status) ~ hormon + chemo + size + er + pgr + nodes + meno + grade + age, data = df)
+cox_res
+```
+
+Running this with my data
+
+```{r}
+
+
+
+```
+
 
 
 Cleaning data calculating proportion sprouted on each day for plotting, visualized in different ways
