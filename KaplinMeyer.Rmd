@@ -14,6 +14,10 @@ library(tidyverse)
 #removed the two reps where intake radicle length was 10 in excel prior to import, this length is impossible 
 
 sprout <- read_csv("Sprouting Experiment/data/E1 LARA_AVGE intake experiment Fall 2022 - MasterData.csv")
+unique(sprout$IntakeDate)
+#have a row that is all NAs, removing
+sprout<-sprout%>%
+  filter(!is.na(IntakeDate))
 
 sprout<-sprout%>%filter(`IntakeDate`!="11/7/22")#remove the one random intake on 11/7 
 
@@ -77,7 +81,22 @@ sprout$IntakeDate<-mdy(sprout$IntakeDate)
 sprout$RemovalDate<-mdy(sprout$RemovalDate)
 ```
 
+Data Cleaning, Kaplein Meyer Curve and Log Rank Test
 
+
+going to run a kaplin meyer curve analysis to analyze time until sprouting.. 
+biostatssquid is a good source to walk through this analysis
+
+The theory behind it all
+https://biostatsquid.com/survival-time-analysis-easily-explained/
+https://biostatsquid.com/kaplan-meier-curve/
+https://biostatsquid.com/easy-log-rank-test/
+https://biostatsquid.com/easy-cox-regression-for-survival-analysis/
+
+the code (how to do it)
+https://biostatsquid.com/easy-survival-analysis-r-tutorial/ 
+
+another tutorial I like the first one better https://www.sthda.com/english/wiki/survival-analysis-basics
 ```{r}
 
 library(survival)
@@ -102,11 +121,52 @@ sprout<-sprout%>%
   RemovalDate -IntakeDate,  #then going to subtract removal date
   SproutDate -IntakeDate )) #if there is anything but an NA, then subtract sprout date
 
+#looking at my new columns to make sure everything is Kosher
+unique(sprout$DaysUntilEvent)
+#found a -1, found NA's, weird gonna look at these
+sproutcheck<-sprout%>%
+  filter(is.na(DaysUntilEvent)|DaysUntilEvent=="-1")%>%
+  select(Species, Treatment, IntakeDate, SproutDate, RemovalDate,DaysUntilEvent, notes)
+
+
+#going to remove these, removal date isnt noted for these
+sprout<-sprout%>%
+  filter(!is.na(DaysUntilEvent))%>%
+  filter(DaysUntilEvent!="-1")
+
+#double check they are removed
+unique(sprout$DaysUntilEvent)
+
+#now I'm checking to see if there are any remaining props without a sprout date and a removal date, there are not, but the prop being removed on day zero in the water treatment is weird, investigating more
+
+sproutcheck<-sprout%>%
+  filter(is.na(SproutDate)|is.na(RemovalDate))%>%
+  select(Treatment,Species,SproutDate, RemovalDate, notes, DaysUntilEvent)%>%
+  filter(DaysUntilEvent==0)
+
+#looks like a prop was removed but date wasnt noted, so I am also going to remove this guy from the time series analysis, ok to keep for sprout or no sprout things, only one that has day until event 0 so will remove this row (i actually figured this out because i plotted the data and saw that one had been removed early, this is why its so important to visualize your data!!)
+
+sprout<-sprout%>%
+  filter(DaysUntilEvent!=0)
+
+#ok data looks clean now, ok to leave a lot of these for binary analysis (sprout not sprout 0/1) but need to remove for time series analysis because dont know date of removal or sprouting
+
+#check how many in each treatment
+sproutcheck<-sprout%>%
+  group_by(Treatment)%>%
+  summarise(n=n())
+
+#Air-175
+#Fresh-177
+#Salt-179
+#Soil-180
+
+
 #check to make sure my columns are numeric
 str(sprout)
 sprout$sprouted<-as.numeric(sprout$sprouted)
 
-#separate the two species
+#separate the two species into their own dataframes
 
 LARA<-sprout%>%
   filter(Species=="LARA")
@@ -114,7 +174,8 @@ LARA<-sprout%>%
 AVGE<-sprout%>%
   filter(Species=="AVGE")
 
-#now we create the survival object using these two columns we created in sprout
+#now we create the survival object using these two columns we created in sprout (censoring status=sprouted or not 0/1, and time to event=time until sprouted or was removed)
+
 LARAsurv_obj <- Surv(time = LARA$DaysUntilEvent, event = LARA$sprouted)
 AVGEsurv_obj<-Surv(time = AVGE$DaysUntilEvent, event = AVGE$sprouted)
 
@@ -122,65 +183,92 @@ AVGEsurv_obj<-Surv(time = AVGE$DaysUntilEvent, event = AVGE$sprouted)
 LARAsurv <- survfit(LARAsurv_obj ~ Treatment, data = LARA)
 AVGEsurv<- survfit(AVGEsurv_obj ~ Treatment, data = AVGE)
 
-#plotting
-LARAplot<-ggsurvplot(LARAsurv, data=LARA)
+#plotting LARA
+LARAplotobj<-ggsurvplot(LARAsurv, data=LARA,
+  palette = c("olivedrab","cornflowerblue","darkblue","salmon4"))
 
+LARAplotobj
+
+#the ggsurvplot doesn't just create a plot, it creates a list of things containing the plot, in order to add ggplot layers you have to pull the plot out of the list
+
+LARAplot<-LARAplotobj$plot+ #pulling out the plot from the list
+  ggtitle("LARA")+#adding ggplot things like normal
+  theme(legend.position = "bottom")
 LARAplot
 
-AVGEplot<-ggsurvplot(AVGEsurv, data=AVGE)
+#plotting AVGE
+AVGEplotobj<-ggsurvplot(AVGEsurv, data=AVGE,
+  palette = c("olivedrab","cornflowerblue","darkblue","salmon4"))
+AVGEplotobj
+
+
+
+#same thing for AVGE
+AVGEplot<-AVGEplotobj$plot+ #pulling out the plot from the list
+  ggtitle("AVGE")+#adding ggplot things like normal
+  theme(legend.position = "bottom")
 AVGEplot
 
+#now time to stat, log rank test to test for statistical differences between the curves
 
+logRankAVGE<-survdiff(Surv(time = AVGE$DaysUntilEvent, event = AVGE$sprouted) ~ Treatment, data = AVGE)
 
-LARAplot<-ggsurvplot(s2, data = df,
-           size = 1,
-           palette = c('#E7B800', '#2e9fdf'),
-           censor.shape = '|', censor.size = 4,
-           conf.int = TRUE,
-           pval = TRUE,
-           risk.table = TRUE,
-           risk.table.col = 'strata',
-           legend.labs = list('0' = 'No chemo', '1' = 'Chemo'),
-           risk.table.height = 0.25,
-           ggtheme = theme_bw())
+logRankAVGE
 
+#Call:
+#survdiff(formula = Surv(time = AVGE$DaysUntilEvent, event = AVGE$sprouted) ~ 
+#    Treatment, data = AVGE)
 
-#  Range Cay 
-g_range <- ggsurvplot(
-  fit_range,
-  data = range_surv,
-  conf.int = TRUE,
-  pval = FALSE,
-  risk.table = TRUE,
-  risk.table.col = "strata",
-  risk.table.height = 0.25,
-  legend.title = "Treatment",
-  legend.labs = c("DCLM", "LCDM", "LCLM"),
-  palette = treatment_colors,
-  title = "Range Cay",
-  xlab = "Monitoring Date",
-  ylab = "Survival Probability",
-  ggtheme = theme_minimal(base_size = 14)
-  
-)
+#                 N Observed Expected (O-E)^2/E (O-E)^2/V
+#Treatment=Air   87       14     98.9    72.884   136.362
+#Treatment=Fresh 88       88     28.0   128.905   173.473
+#Treatment=Salt  90       88     82.6     0.359     0.592
+#Treatment=Soil  90       77     57.6     6.551     9.480
 
+# Chisq= 257  on 3 degrees of freedom, p= <2e-16
+
+LogRankLARA<-survdiff(Surv(time = LARA$DaysUntilEvent, event = LARA$sprouted) ~ Treatment, data = LARA)
+LogRankLARA
+
+#survdiff(formula = Surv(time = LARA$DaysUntilEvent, event = LARA$sprouted) ~ 
+#    Treatment, data = LARA)
+
+#                 N Observed Expected (O-E)^2/E (O-E)^2/V
+#Treatment=Air   88       26     90.9    46.355     89.43
+#Treatment=Fresh 89       85     41.6    45.375     70.18
+#Treatment=Salt  89       84     54.7    15.662     24.59
+#Treatment=Soil  90       66     73.8     0.822      1.37
+
+# Chisq= 144  on 3 degrees of freedom, p= <2e-16 
+
+#now that we know there is a difference between treatments want to take into account the other variables use a Cox regression analysis to incorporate 
 
 ```
 
-going to run a kaplin meyer curve analysis to analyze time until sprouting.. 
-biostatssquid is a good source to walk through this analysis
+Cox Regression 
+``` {r}
 
-The theory behind it all
-https://biostatsquid.com/survival-time-analysis-easily-explained/
-https://biostatsquid.com/kaplan-meier-curve/
-https://biostatsquid.com/easy-log-rank-test/
-https://biostatsquid.com/easy-cox-regression-for-survival-analysis/
+str(LARA)
+LARA$Float<-as.factor(LARA$Float)
+LARA$Treatment<-as.factor(LARA$Treatment)
+LARA<-as.data.frame(LARA)
 
-the code (how to do it)
-https://biostatsquid.com/easy-survival-analysis-r-tutorial/ 
+#now that we know there is a difference between treatments want to take into account the other variables use a Cox regression analysis to incorporate 
 
-another tutorial I like the first one better https://www.sthda.com/english/wiki/survival-analysis-basics
+LARAcox<-coxph(Surv(time = LARA$DaysUntilEvent, event = LARA$sprouted)~Treatment+SiteID+Mass, data=LARA)
 
+LARAcox
+
+
+AVGEcox<-coxph()
+
+# Cox regression ======================================================
+# Fit the model
+cox_res <- coxph(Surv(dtime_yrs, status) ~ hormon + chemo + size + er + pgr + nodes + meno + grade + age, data = df)
+cox_res
+```
+
+Stat squid Kaplin Meyer tutorial
 ```{r Kaplin Meyer Survival Curve}
 library(survival)
 library(ggsurvfit)
